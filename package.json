@@ -4,6 +4,7 @@
 	"private": true,
 	"homepage": ".",
 	"dependencies": {
+		"@fireworks-js/react": "^2.10.7",
 		"@flylikeapenguin/react-flip-clock-countdown": "github:flylikeapenguin/react-flip-clock-countdown",
 		"@mantine/core": "^4.2.12",
 		"@mantine/hooks": "^4.2.12",

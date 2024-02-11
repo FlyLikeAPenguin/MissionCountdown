@@ -6,34 +6,30 @@ import {
 	Modal,
 	TextInput,
 	Group,
-	Card,
 	ActionIcon,
-	Code,
 	TimelineItem,
 	Timeline
 } from '@mantine/core';
 import { useState, useRef, useEffect } from 'react';
-import { MoonStars, Sun, Trash, Check } from 'tabler-icons-react';
+import { MoonStars, Sun, Trash } from 'tabler-icons-react';
 
 import {
 	MantineProvider,
 	ColorSchemeProvider,
-	ColorScheme,
 } from '@mantine/core';
-import { useColorScheme } from '@mantine/hooks';
+import { Fireworks } from '@fireworks-js/react'
 import { useHotkeys, useLocalStorage } from '@mantine/hooks';
 import FlipClockCountdown from "@flylikeapenguin/react-flip-clock-countdown";
 import '@flylikeapenguin/react-flip-clock-countdown/dist/index.css';
 
 export default function App() {
 	// const dt = Date.parse('2024/02/11 13:24:50')
-	const [dt, setDt] = useState(new Date().getTime() + 10000)
-	const [tasks, setTasks] = useState([]);
+	const [dt, setDt] = useState(new Date().getTime() + 5000)
+	const [stages, setStages] = useState([]);
 	const [opened, setOpened] = useState(false);
 	const [active, setActive] = useState(-1);
 	const [showMET, setShowMET] = useState(new Date() > dt);
-
-	const preferredColorScheme = useColorScheme();
+	const fireworksRef = useRef(null)
 	const [colorScheme, setColorScheme] = useLocalStorage({
 		key: 'mantine-color-scheme',
 		defaultValue: 'dark',
@@ -44,81 +40,83 @@ export default function App() {
 
 	useHotkeys([['mod+J', () => toggleColorScheme()]]);
 
-	const taskTitle = useRef('');
-	const taskSummary = useRef('');
+	const stageTitle = useRef('');
+	const stageSummary = useRef('');
 	// const dt = Date.parse('2024/03/02 07:28:34')
-
-	function createTask() {
-		setTasks([
-			...tasks,
+	function createStage() {
+		setStages([
+			...stages,
 			{
-				title: taskTitle.current.value,
-				summary: taskSummary.current.value,
-				complete: taskSummary.current.value
+				title: stageTitle.current.value,
+				summary: stageSummary.current.value,
 			},
 		]);
 
-		saveTasks([
-			...tasks,
+		saveStages([
+			...stages,
 			{
-				title: taskTitle.current.value,
-				summary: taskSummary.current.value,
-				complete: taskSummary.current.value
+				title: stageTitle.current.value,
+				summary: stageSummary.current.value,
 			},
 		]);
 	}
 
-	function deleteTask(index) {
-		var clonedTasks = [...tasks];
+	function deleteStage(index) {
+		var clonedStages = [...stages];
 
-		clonedTasks.splice(index, 1);
+		clonedStages.splice(index, 1);
 
-		setTasks(clonedTasks);
+		setStages(clonedStages);
 
-		saveTasks([...clonedTasks]);
+		saveStages([...clonedStages]);
 	}
 
-	function loadTasks() {
-		let loadedTasks = localStorage.getItem('tasks');
-
-		let tasks = JSON.parse(loadedTasks);
-
-		if (tasks) {
-			setTasks(tasks);
-		}
+	function loadStages() {
+		fetch('https://api.npoint.io/a89455894d88ff71c0cc')
+			.then((response) => response.json())
+			.then((responseJson) => {
+				setStages(responseJson);
+			})
+			.catch((error) => {
+				console.error(error);
+			});
 	}
 
-	function saveTasks(tasks) {
-		localStorage.setItem('tasks', JSON.stringify(tasks));
+	function saveStages(stages) {
+		localStorage.setItem('stages', JSON.stringify(stages));
 	}
 
 	useEffect(() => {
-		loadTasks();
+		loadStages();
 	}, []);
 
-	const getTasks = () => {
-		return tasks.map((task, index) => {
-			if (task.title) {
+	const getStages = () => {
+		return stages.map((stage, index) => {
+			if (stage.title) {
 				return (
 					<TimelineItem key={index} mt={'sm'}
 						onClick={() => {
 							setActive(index);
+							if (index === stages.length - 1) {
+								fireworksRef.current?.start();
+								setTimeout(() => fireworksRef.current?.waitStop(), 30000)
+							}
 						}}>
 						<Group position={'apart'}>
-							<Text weight={'bold'}>{task.title}</Text>
+							<Text weight={'bold'}>{stage.title}</Text>
 							<ActionIcon
 								onClick={() => {
-									deleteTask(index);
+									deleteStage(index);
 								}}
-								color={'gray'}
+								color={'dark'}
 								variant={'transparent'}>
 								<Trash />
 							</ActionIcon>
 						</Group>
 						<Text color={'dimmed'} size={'md'} mt={'sm'}>
-							{task.summary
-								? task.summary
-								: 'No summary was provided for this task'}
+							{stage.summary
+								? stage.summary
+								: 'No summary was provided for this stage'}
 						</Text>
 					</TimelineItem>
 				);
@@ -132,16 +130,35 @@ export default function App() {
 			<ColorSchemeProvider
 				colorScheme={colorScheme}
 				toggleColorScheme={toggleColorScheme}>
-
 				<MantineProvider
 					theme={{ colorScheme, defaultRadius: 'md' }}
 					withGlobalStyles
 					withNormalizeCSS>
 					<div className='App'>
+						<Fireworks
+							ref={fireworksRef}
+							options={{
+								opacity: 0.2,
+								brightness: { min: 10, max: 20 },
+								hue: {
+									min: 25,
+									max: 40
+								}
+							}}
+							autostart={false}
+							style={{
+								top: "30%",
+								left: 0,
+								width: '100%',
+								height: '100%',
+								position: 'fixed',
+
+							}}
+						/>
 						<Modal
 							opened={opened}
 							size={'md'}
-							title={'New Task'}
+							title={'New Stage'}
 							withCloseButton={false}
 							onClose={() => {
 								setOpened(false);
@@ -149,15 +166,15 @@ export default function App() {
 							centered>
 							<TextInput
 								mt={'md'}
-								ref={taskTitle}
-								placeholder={'Task Title'}
+								ref={stageTitle}
+								placeholder={'Stage Title'}
 								required
 								label={'Title'}
 							/>
 							<TextInput
-								ref={taskSummary}
+								ref={stageSummary}
 								mt={'md'}
-								placeholder={'Task Summary'}
+								placeholder={'Stage Summary'}
 								label={'Summary'}
 							/>
 							<Group mt={'md'} position={'apart'}>
@@ -170,33 +187,50 @@ export default function App() {
 								</Button>
 								<Button
 									onClick={() => {
-										createTask();
+										createStage();
 										setOpened(false);
 									}}>
-									Create Task
+									Create Stage
 								</Button>
 							</Group>
 						</Modal>
 						<Container size={600} my={40}>
-							<Group position={'apart'} className='flip-clock-down'>
+							<Group position={'center'} className='flip-clock-down'>
 								<Title sx={theme => ({
 									fontFamily: `consolas, ${theme.fontFamily}`,
-									fontWeight: 900
+									fontWeight: 900,
+									fontSize: 50
 								})}>
-									{showMET ? 'MET' : 'T-'}
+									{showMET ? 'T+' : 'T-'}
 								</Title>
-								<FlipClockCountdown to={dt} hideOnComplete={false} />
+								<FlipClockCountdown to={dt} hideOnComplete={false} onComplete={() => {
+									setShowMET(true);
+									setActive(0);
+									fireworksRef.current?.start();
+									setTimeout(() => {
+										fireworksRef.current?.waitStop(); fireworksRef.current?.updateOptions({
+											opacity: 0.2,
+											brightness: { min: 10, max: 20 },
+											hue: {
+												min: 0,
+												max: 360
+											}
+										})
+									}, 5000);
+
+								}} />
 							</Group>
 							< Group position={'apart'}>
 								<Title
 									sx={theme => ({
 										fontFamily: `Greycliff CF, ${theme.fontFamily}`,
 										fontWeight: 900,
+										paddingTop: 15
 									})}>
-									My Tasks
+									Mission Progress
 								</Title>
 								<ActionIcon
-									color={'blue'}
+									color={'gray'}
 									onClick={() => toggleColorScheme()}
 									size='lg'>
 									{colorScheme === 'dark' ? (
@@ -206,13 +240,13 @@ export default function App() {
 									)}
 								</ActionIcon>
 							</Group>
-							{tasks.length > 0 ? (
+							{stages.length > 0 ? (
 								<Timeline active={active} color='blue' bulletSize={25}>
-									{getTasks()}
+									{getStages()}
 								</Timeline>
 							) : (
 								<Text size={'lg'} mt={'md'} color={'dimmed'}>
-									You have no tasks
+									You have no stages
 								</Text>
 							)}
 							<Button
@@ -221,7 +255,7 @@ export default function App() {
 								}}
 								fullWidth
 								mt={'md'}>
-								New Task
+								New Stage
 							</Button>
 						</Container>
 					</div>
