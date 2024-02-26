@@ -24,9 +24,9 @@ import '@flylikeapenguin/react-flip-clock-countdown/dist/index.css';
 
 export default function App() {
 	// const dt = Date.parse('2024/02/11 13:24:50')
-	const [dt, setDt] = useState(new Date().getTime() + 5000)
+	const [timeNow, setTimeNow] = useState(new Date());
+	const [dt, setDt] = useState(new Date().getTime() + 60000)
 	const [stages, setStages] = useState([]);
-	const [opened, setOpened] = useState(false);
 	const [active, setActive] = useState(-1);
 	const [showMET, setShowMET] = useState(new Date() > dt);
 	const fireworksRef = useRef(null)
@@ -40,42 +40,23 @@ export default function App() {
 
 	useHotkeys([['mod+J', () => toggleColorScheme()]]);
 
-	const stageTitle = useRef('');
-	const stageSummary = useRef('');
-	// const dt = Date.parse('2024/03/02 07:28:34')
-	function createStage() {
-		setStages([
-			...stages,
-			{
-				title: stageTitle.current.value,
-				summary: stageSummary.current.value,
-			},
-		]);
+	// function deleteStage(index) {
+	// 	var clonedStages = [...stages];
 
-		saveStages([
-			...stages,
-			{
-				title: stageTitle.current.value,
-				summary: stageSummary.current.value,
-			},
-		]);
-	}
+	// 	clonedStages.splice(index, 1);
 
-	function deleteStage(index) {
-		var clonedStages = [...stages];
+	// 	setStages(clonedStages);
 
-		clonedStages.splice(index, 1);
+	// 	saveStages([...clonedStages]);
+	// }
 
-		setStages(clonedStages);
-
-		saveStages([...clonedStages]);
-	}
-
-	function loadStages() {
+	function loadDataStore() {
 		fetch('https://api.npoint.io/a89455894d88ff71c0cc')
 			.then((response) => response.json())
 			.then((responseJson) => {
-				setStages(responseJson);
+				setStages(responseJson.stages);
+				setDt(responseJson.liftoffTime)
+				setActive(responseJson.activeStage)
 			})
 			.catch((error) => {
 				console.error(error);
@@ -86,8 +67,38 @@ export default function App() {
 		localStorage.setItem('stages', JSON.stringify(stages));
 	}
 
+	function deltaTimeString(target, now) {
+		var delta = (new Date(target).getTime() - now) / 1000;
+		if (delta < 0) {
+			return ''
+		}
+		// calculate (and subtract) whole days
+		var days = Math.floor(delta / 86400);
+		delta -= days * 86400;
+
+		// calculate (and subtract) whole hours
+		var hours = Math.floor(delta / 3600) % 24;
+		delta -= hours * 3600;
+
+		// calculate (and subtract) whole minutes
+		var minutes = Math.floor(delta / 60) % 60;
+		delta -= minutes * 60;
+
+		// what's left is seconds
+		var seconds = Math.floor(delta % 60);
+		return `${days}:${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+	}
+
 	useEffect(() => {
-		loadStages();
+		loadDataStore();
+	}, []);
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setTimeNow(new Date());
+		}, 1000);
+
+		return () => clearInterval(interval);
 	}, []);
 
 	const getStages = () => {
@@ -97,27 +108,34 @@ export default function App() {
 					<TimelineItem key={index} mt={'sm'}
 						onClick={() => {
 							setActive(index);
-							if (index === stages.length - 1) {
+							if (stages[index].fireworks === true) {
 								fireworksRef.current?.start();
 								setTimeout(() => fireworksRef.current?.waitStop(), 30000)
 							}
 						}}>
 						<Group position={'apart'}>
 							<Text weight={'bold'}>{stage.title}</Text>
-							<ActionIcon
+							{/* <ActionIcon
 								onClick={() => {
 									deleteStage(index);
 								}}
 								color={'dark'}
 								variant={'transparent'}>
 								<Trash />
-							</ActionIcon>
+							</ActionIcon> */}
 						</Group>
-						<Text color={'dimmed'} size={'md'} mt={'sm'}>
-							{stage.summary
-								? stage.summary
-								: 'No summary was provided for this stage'}
-						</Text>
+						<Group position={'apart'}>
+							<Text color={'dimmed'} size={'md'} mt={'sm'}>
+								{stage.summary
+									? stage.summary
+									: ''}
+							</Text>
+							<Text color={'dimmed'} size={'md'} mt={'sm'}>
+								{stage.time
+									? deltaTimeString(stage.time, timeNow)
+									: ''}
+							</Text>
+						</Group>
 					</TimelineItem>
 				);
 			}
@@ -141,8 +159,8 @@ export default function App() {
 								opacity: 0.2,
 								brightness: { min: 10, max: 20 },
 								hue: {
-									min: 25,
-									max: 40
+									min: 0,
+									max: 360
 								}
 							}}
 							autostart={false}
@@ -155,60 +173,29 @@ export default function App() {
 
 							}}
 						/>
-						<Modal
-							opened={opened}
-							size={'md'}
-							title={'New Stage'}
-							withCloseButton={false}
-							onClose={() => {
-								setOpened(false);
-							}}
-							centered>
-							<TextInput
-								mt={'md'}
-								ref={stageTitle}
-								placeholder={'Stage Title'}
-								required
-								label={'Title'}
-							/>
-							<TextInput
-								ref={stageSummary}
-								mt={'md'}
-								placeholder={'Stage Summary'}
-								label={'Summary'}
-							/>
-							<Group mt={'md'} position={'apart'}>
-								<Button
-									onClick={() => {
-										setOpened(false);
-									}}
-									variant={'subtle'}>
-									Cancel
-								</Button>
-								<Button
-									onClick={() => {
-										createStage();
-										setOpened(false);
-									}}>
-									Create Stage
-								</Button>
-							</Group>
-						</Modal>
-						<Container size={600} my={40}>
+						<Container size={400} my={40}>
 							<Group position={'center'} className='flip-clock-down'>
 								<Title sx={theme => ({
 									fontFamily: `consolas, ${theme.fontFamily}`,
-									fontWeight: 900,
-									fontSize: 50
+									fontSize: 30
 								})}>
 									{showMET ? 'T+' : 'T-'}
 								</Title>
-								<FlipClockCountdown to={dt} hideOnComplete={false} onComplete={() => {
+								<FlipClockCountdown to={dt} hideOnComplete={false} digitBlockStyle={{ width: 30, height: 60, fontSize: 30 }} onComplete={() => {
 									setShowMET(true);
 									setActive(0);
+									fireworksRef.current?.updateOptions({
+										opacity: 0.2,
+										brightness: { min: 10, max: 20 },
+										hue: {
+											min: 20,
+											max: 40
+										}
+									})
 									fireworksRef.current?.start();
 									setTimeout(() => {
-										fireworksRef.current?.waitStop(); fireworksRef.current?.updateOptions({
+										fireworksRef.current?.waitStop();
+										fireworksRef.current?.updateOptions({
 											opacity: 0.2,
 											brightness: { min: 10, max: 20 },
 											hue: {
@@ -249,14 +236,6 @@ export default function App() {
 									You have no stages
 								</Text>
 							)}
-							<Button
-								onClick={() => {
-									setOpened(true);
-								}}
-								fullWidth
-								mt={'md'}>
-								New Stage
-							</Button>
 						</Container>
 					</div>
 				</MantineProvider>
